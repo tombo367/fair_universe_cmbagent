@@ -1,0 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.9.0+cu130
+torchvision==0.24.0+cu130
+numpy==2.3.3
+scikit-learn==1.7.2
+h5py==3.15.0
+hdf5plugin==6.0.0
+foscat==2025.5.2
+tqdm==4.67.1

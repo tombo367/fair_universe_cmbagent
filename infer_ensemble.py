@@ -3,9 +3,10 @@ import datetime
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
-import foscat.scat_cov2D as sc
-from fair_universe import Data, Utility
 
+from utils.data import Data
+from utils.scattering import make_scat_op, scattering_coefficients
+from utils.submission import save_json_zip
 from train_ensemble import (
     CosmoNet, CosmoNetWSTwithError, CosmologyDataset, KappaTransform, WstPCATransform,
     build_ensemble_config, get_h5_paths, load_scaler_npz, load_wst_pca_npz,
@@ -165,18 +166,6 @@ def load_member(cfg, wst_dim):
     return m.eval()
 
 
-def compute_st(kappa, mask, batch_size=8):
-    scat_op = sc.funct(NORIENT=4, JmaxDelta=0, padding="same", BACKEND="torch", all_type="float32")
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    st = np.zeros((kappa.shape[0], 630), dtype=np.float32)
-    mask = mask.reshape(1, *mask.shape)
-    for i0 in range(0, kappa.shape[0], batch_size):
-        ref = scat_op.eval(torch.tensor(kappa[i0:i0 + batch_size]), mask=mask)
-        st[i0:i0 + batch_size] = ref.iso_mean().flattenMask().detach().cpu().numpy()
-    return st
-
-
 class TestKappaDataset(Dataset):
     """Test maps are already noisy, so they are only masked and standardised."""
     def __init__(self, kappa_test, mask, mean_img, std_img, st):
@@ -235,7 +224,7 @@ def main():
     print(f"Temperature tau = {tau:.3f}")
 
     # test predictions
-    st_test = wst_transform.transform(compute_st(data.kappa_test.astype(np.float32) * data.mask.astype(np.float32)[None], data.mask)).astype(np.float32)
+    st_test = wst_transform.transform(scattering_coefficients(make_scat_op(), data.kappa_test.astype(np.float32) * data.mask.astype(np.float32)[None], data.mask)).astype(np.float32)
     test_preds = []
     for cfg, (mean_img, std_img), scaler in zip(cfgs, stats, scalers):
         ds = TestKappaDataset(data.kappa_test, data.mask, mean_img, std_img, st_test)
@@ -249,7 +238,7 @@ def main():
 
     os.makedirs(SUBMISSIONS_DIR, exist_ok=True)
     stamp = datetime.datetime.now().strftime("%y-%m-%d-%H-%M")
-    zip_path = Utility.save_json_zip(
+    zip_path = save_json_zip(
         submission_dir=SUBMISSIONS_DIR,
         json_file_name="result.json",
         zip_file_name=f"Submission_{stamp}.zip",

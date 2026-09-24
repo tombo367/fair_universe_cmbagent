@@ -3,10 +3,12 @@ __pycache__/
 .ipynb_checkpoints/
 .DS_Store
 .env
+.venv/
 
 data/
 models/
 submissions/
+logs/
 *.pth
 *.npz
 *.npy

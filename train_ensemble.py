@@ -15,10 +15,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import h5py
 import hdf5plugin
-from fair_universe import Data
 
-os.environ["FAIR_DATA_DIR"] = "/rds/fair_challenge/public_data"
-os.environ["FAIR_USE_PUBLIC_DATASET"] = "1"
+from utils.data import Data
+from utils.noise import noise_scale
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 WST_DATA_DIR = "/rds/fair_challenge/wavelet_scattering_float16"
@@ -82,7 +82,7 @@ class CosmoDataset(Dataset):
         self.mask = mask.astype(np.float32)
         self.idx_pairs = idx_pairs.astype(np.int64)
         self.labels = labels.astype(np.float32)
-        self.scale = 0.4 / math.sqrt(2.0 * float(ng) * float(pixel_size_arcmin) ** 2)
+        self.scale = float(noise_scale(float(ng), float(pixel_size_arcmin)))
         self.mean_img = float(mean_img)
         self.std_img = float(stdsafe(std_img))
         self.label_scaler = label_scaler
@@ -271,7 +271,7 @@ def compute_img_stats_sampled(kappa, mask, idx_pairs, ng, pixel_size_arcmin,
                               max_samples=4000, seed=7777, add_noise=True):
     rng = np.random.default_rng(seed)
     sel = rng.choice(idx_pairs.shape[0], size=min(max_samples, idx_pairs.shape[0]), replace=False)
-    scale = 0.4 / math.sqrt(2.0 * float(ng) * float(pixel_size_arcmin) ** 2)
+    scale = float(noise_scale(float(ng), float(pixel_size_arcmin)))
     maskf = mask.astype(np.float32)
     s, s2, n = np.float64(0.0), np.float64(0.0), 0
     for k in sel:
