@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it."
+title: "fair_universe_cmbagent"
+type: software
+authors:
+  - given-names: "Thomas"
+    family-names: "Borrett"
+  - given-names: "Licong"
+    family-names: "Xu"
+  - given-names: "Andy"
+    family-names: "Nilipour"
+version: 0.1.0
+url: "https://github.com/tombo367/fair_universe_cmbagent"
