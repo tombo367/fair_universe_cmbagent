@@ -16,12 +16,15 @@ At inference, each member's predictions are averaged over 8 dihedral views. A Ga
 Run from this directory. Outputs go to `data/`, `models/` and `submissions/`.
 
 ```bash
+python compute_scattering.py    # noisy maps + scattering coefficients to HDF5
 python train_ensemble.py        # both stages
 python train_ensemble.py cnn    # CNN stage only
 python train_ensemble.py wst    # WST head only (needs models/model_{i}.pth)
 python infer_ensemble.py        # writes submissions/Submission_<date>.zip
 ```
 
+`compute_scattering.py` needs to run first, and only once. It generates 150 noise realisations (seeds 500–649) of every training map on the GPU. For each one it saves the float16 masked map and the 630 isotropic scattering-covariance coefficients from `foscat`, using 4 orientations and all scales. They go into 15 HDF5 files of 10 realisations each, about 58 GB per file. The WST stage of training reads these files. With the default settings the output is bit-identical to the original dataset in `/rds/fair_challenge/wavelet_scattering_float16`.
+
 To run inference with the original weights, copy `fair_universe_final/data` and `fair_universe_final/models` in here first.
 
-Requires `fair_universe`, `foscat`, `torch`, `torchvision`, `scikit-learn`, `h5py` and `hdf5plugin`. Data paths are set at the top of `train_ensemble.py`.
+Requires `fair_universe`, `foscat`, `torch`, `torchvision`, `scikit-learn`, `h5py`, `hdf5plugin` and `tqdm`. Data paths are set at the top of `train_ensemble.py`.

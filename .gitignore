@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.DS_Store
+.env
+
+data/
+models/
+submissions/
+*.pth
+*.npz
+*.npy
+*.h5
+*.zip
