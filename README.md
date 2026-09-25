@@ -26,6 +26,7 @@ The public challenge data is read from `$FAIR_DATA_DIR`, which defaults to `/rds
 ## Layout
 
 - `compute_scattering.py`, `train_ensemble.py`, `infer_ensemble.py`: the three pipeline steps, run in that order
+- `score_holdout.py`: scores holdout predictions against the Phase 1 labels
 - `utils/`: small helpers for loading data, adding shape noise, computing the scattering transform and writing submissions
 
 ## Reproducing the results
@@ -40,14 +41,11 @@ export OMP_NUM_THREADS=4
 
 ### 1. Dataset
 
-The original dataset was built in two runs: seeds 500–529 first, then 530–649. Each realisation is seeded on its own, so the files come out the same either way.
-
 ```bash
-python -u compute_scattering.py --master_seed 500 --n_noisy 30  2>&1 | tee logs/scattering_500.log
-python -u compute_scattering.py --master_seed 530 --n_noisy 120 2>&1 | tee logs/scattering_530.log
+python -u compute_scattering.py --master_seed 500 --n_noisy 150 2>&1 | tee logs/scattering.log
 ```
 
-Running `python compute_scattering.py` once with no arguments does the same as the two runs above. Either way you get 150 noise realisations of every training map, seeds 500–649. Each realisation stores the float16 masked map and the 630 isotropic scattering-covariance coefficients from `foscat`, with 4 orientations and all scales. The files hold 10 realisations each, about 58 GB per file, so expect roughly 875 GB in total. On one GPU each realisation takes about 1.5 minutes for the scattering transform alone. The output matches the original `/rds/fair_challenge/wavelet_scattering_float16` bit for bit.
+This makes 150 noise realisations of every training map, seeds 500–649. Each realisation stores the float16 masked map and the 630 isotropic scattering-covariance coefficients from `foscat`, with 4 orientations and all scales. The files hold 10 realisations each, about 58 GB per file, so 875 GB in total. On one GPU each realisation takes about 1.5 minutes for the scattering transform alone.
 
 ### 2. Training
 
@@ -63,9 +61,16 @@ The WST stage takes its HDF5 files in `os.listdir` order: epochs 0–9 use the f
 ### 3. Inference
 
 ```bash
-python -u infer_ensemble.py 2>&1 | tee logs/infer.log
+python -u infer_ensemble.py --split test    2>&1 | tee logs/infer_test.log
+python -u infer_ensemble.py --split holdout 2>&1 | tee logs/infer_holdout.log
+python score_holdout.py 2>&1 | tee logs/score_holdout.log
 ```
 
-This calibrates the ensemble likelihood on each member's validation systems and predicts the 4,000 test maps. It writes `submissions/Submission_<date>.zip` and `data/test_eval.npz`.
+Both inference runs calibrate the ensemble likelihood on each member's validation systems, then predict the given split. They write `submissions/Submission_<split>_<date>.zip` and `data/<split>_eval.npz`.
 
-To skip training and use the original weights, copy `fair_universe_final/data` and `fair_universe_final/models` into this directory and run only this step.
+- `--split test` predicts the 4,000 unlabelled public test maps.
+- `--split holdout` predicts the 10,020 labelled Phase 1 holdout maps and prints the overall score. It needs `WIDE12H_bin2_2arcmin_kappa_noisy_Phase1_holdout.npy` and `Phase-1_holdout_labels_10020.npy` in `$FAIR_DATA_DIR`.
+  - The first 4,020 rows are the Phase 1 test set, which has 10 cosmologies.
+  - The last 6,000 cover all 101 training cosmologies.
+
+`score_holdout.py` scores the newest holdout submission, or a zip you pass it. It reports the challenge score for the full holdout and for each of those two blocks. For each it also gives a bootstrap 95% interval, a cosmology-level error, and the bias, RMSE and 68%/95% coverage for Ω_m and S8. The final submission scores 11.34 on the full holdout, 10.79 on the Phase 1 test set and 11.70 on the last 6,000 maps.

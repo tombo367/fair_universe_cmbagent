@@ -9,6 +9,8 @@ MASK_FILE = "WIDE12H_bin2_2arcmin_mask.npy"
 KAPPA_FILE = "WIDE12H_bin2_2arcmin_kappa.npy"
 LABEL_FILE = "label.npy"
 TEST_KAPPA_FILE = "WIDE12H_bin2_2arcmin_kappa_noisy_test.npy"
+HOLDOUT_KAPPA_FILE = "WIDE12H_bin2_2arcmin_kappa_noisy_Phase1_holdout.npy"
+HOLDOUT_LABEL_FILE = "Phase-1_holdout_labels_10020.npy"
 
 
 class Data:
@@ -17,6 +19,7 @@ class Data:
     Ncosmo = 101
     Nsys = 256
     Ntest = 4000
+    Nholdout = 10020
     shape = (1424, 176)
     pixelsize_arcmin = 2
     ng = 30
@@ -36,3 +39,9 @@ class Data:
     def load_test_data(self):
         self.kappa_test = np.zeros((self.Ntest, *self.shape), dtype=np.float16)
         self.kappa_test[:, self.mask] = self._load(TEST_KAPPA_FILE)
+
+    def load_holdout_data(self):
+        """Labelled Phase 1 holdout: rows 0-4019 are the Phase 1 test set, rows 4020-10019 cover all 101 training cosmologies."""
+        self.kappa_holdout = np.zeros((self.Nholdout, *self.shape), dtype=np.float16)
+        self.kappa_holdout[:, self.mask] = self._load(HOLDOUT_KAPPA_FILE)
+        self.label_holdout = self._load(HOLDOUT_LABEL_FILE)

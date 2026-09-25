@@ -1,4 +1,5 @@
 import os
+import argparse
 import datetime
 import numpy as np
 import torch
@@ -6,6 +7,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from utils.data import Data
 from utils.scattering import make_scat_op, scattering_coefficients
+from utils.score import score_phase1
 from utils.submission import save_json_zip
 from train_ensemble import (
     CosmoNet, CosmoNetWSTwithError, CosmologyDataset, KappaTransform, WstPCATransform,
@@ -184,12 +186,21 @@ class TestKappaDataset(Dataset):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Ensemble inference on the public test maps or the labelled Phase 1 holdout.")
+    parser.add_argument("--split", choices=["test", "holdout"], default="test")
+    args = parser.parse_args()
+
     set_global_determinism(1234)
     h5_paths = get_h5_paths()
 
     data = Data()
     data.load_train_data()
-    data.load_test_data()
+    if args.split == "test":
+        data.load_test_data()
+        kappa_eval = data.kappa_test
+    else:
+        data.load_holdout_data()
+        kappa_eval = data.kappa_holdout
     grid = data.label[:, 0, :2].astype(np.float64)
 
     wst_scaler, wst_pca = load_wst_pca_npz("data/wst_pca.npz")
@@ -223,11 +234,11 @@ def main():
     cov_d = cov_d * tau ** 2
     print(f"Temperature tau = {tau:.3f}")
 
-    # test predictions
-    st_test = wst_transform.transform(scattering_coefficients(make_scat_op(), data.kappa_test.astype(np.float32) * data.mask.astype(np.float32)[None], data.mask)).astype(np.float32)
+    # predictions on the evaluation maps (already noisy)
+    st_test = wst_transform.transform(scattering_coefficients(make_scat_op(), kappa_eval.astype(np.float32) * data.mask.astype(np.float32)[None], data.mask)).astype(np.float32)
     test_preds = []
     for cfg, (mean_img, std_img), scaler in zip(cfgs, stats, scalers):
-        ds = TestKappaDataset(data.kappa_test, data.mask, mean_img, std_img, st_test)
+        ds = TestKappaDataset(kappa_eval, data.mask, mean_img, std_img, st_test)
         loader = DataLoader(ds, batch_size=cfg["batch_size"], shuffle=False, num_workers=WORKERS_TEST, pin_memory=True)
         test_preds.append(predict(load_member(cfg, wst_dim), loader, scaler))
 
@@ -241,15 +252,17 @@ def main():
     zip_path = save_json_zip(
         submission_dir=SUBMISSIONS_DIR,
         json_file_name="result.json",
-        zip_file_name=f"Submission_{stamp}.zip",
+        zip_file_name=f"Submission_{args.split}_{stamp}.zip",
         data={"means": mu.tolist(), "errorbars": sigma.tolist()},
     )
-    np.savez("data/test_eval.npz", ens_pred_test=y_pred_test, ens_mu_test=mu, ens_sigma_test=sigma,
+    np.savez(f"data/{args.split}_eval.npz", ens_pred_test=y_pred_test, ens_mu_test=mu, ens_sigma_test=sigma,
              cosmology_grid=grid, ens_mean=mean_d, ens_cov=cov_d, member_weights=w)
 
     print(f"Saved {zip_path}")
     print(f"Omega_m: mean {mu[:, 0].mean():.4f}, mean sigma {sigma[:, 0].mean():.4f}")
     print(f"S8:      mean {mu[:, 1].mean():.4f}, mean sigma {sigma[:, 1].mean():.4f}")
+    if args.split == "holdout":
+        print(f"Holdout score: {score_phase1(data.label_holdout, mu, sigma):.4f}")
 
 
 if __name__ == "__main__":
