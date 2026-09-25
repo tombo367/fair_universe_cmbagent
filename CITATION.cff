@@ -10,4 +10,5 @@ authors:
   - given-names: "Andy"
     family-names: "Nilipour"
 version: 0.1.0
+license: MIT
 url: "https://github.com/tombo367/fair_universe_cmbagent"

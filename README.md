@@ -74,3 +74,7 @@ Both inference runs calibrate the ensemble likelihood on each member's validatio
   - The last 6,000 cover all 101 training cosmologies.
 
 `score_holdout.py` scores the newest holdout submission, or a zip you pass it. It reports the challenge score for the full holdout and for each of those two blocks. For each it also gives a bootstrap 95% interval, a cosmology-level error, and the bias, RMSE and 68%/95% coverage for Ω_m and S8. The final submission scores 11.34 on the full holdout, 10.79 on the Phase 1 test set and 11.70 on the last 6,000 maps.
+
+## License
+
+Released under the [MIT License](LICENSE).
